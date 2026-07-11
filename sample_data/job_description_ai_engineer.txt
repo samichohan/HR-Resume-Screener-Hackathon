@@ -1,0 +1,29 @@
+AI Engineer
+
+We are hiring an AI Engineer to design, build, and deploy machine learning
+and deep learning systems in production.
+
+Responsibilities:
+- Build and train machine learning / deep learning models (classification,
+  regression, NLP, computer vision) using Python
+- Work with TensorFlow, PyTorch, or scikit-learn to develop predictive models
+- Design and maintain data pipelines for model training (Pandas, NumPy, SQL)
+- Build REST APIs (Flask/FastAPI/Django) to serve trained models
+- Apply NLP techniques (embeddings, transformers, LLMs) where relevant
+- Use explainable AI methods (SHAP, feature importance) to justify model
+  decisions to stakeholders
+- Deploy and monitor models using Docker, cloud platforms (AWS/Azure/GCP),
+  and CI/CD pipelines
+- Collaborate with data scientists and software engineers on end-to-end
+  AI product features
+
+Requirements:
+- Strong proficiency in Python, SQL, Pandas, NumPy
+- Hands-on experience with Machine Learning / Deep Learning (TensorFlow,
+  PyTorch, or scikit-learn)
+- Experience with NLP and/or LLM-based systems is a plus
+- Experience building and deploying REST APIs
+- Familiarity with Docker, Git, and cloud deployment
+- Bachelor's or Master's degree in Computer Science, AI, Data Science, or
+  a related field
+- 2+ years of experience building and shipping ML/AI systems

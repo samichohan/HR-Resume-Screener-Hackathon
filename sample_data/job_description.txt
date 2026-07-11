@@ -1,0 +1,19 @@
+Python Developer
+
+We are hiring a Python Developer with 3+ years of experience to join our data
+engineering team.
+
+Responsibilities:
+- Build and maintain data pipelines using Python, SQL, and Pandas
+- Design REST APIs using Flask or Django
+- Work with Machine Learning models (scikit-learn, regression, classification)
+- Collaborate with the Data Science team on feature engineering
+- Write clean, tested, production-grade code and deploy with Docker
+
+Requirements:
+- Strong proficiency in Python, SQL, Pandas, NumPy
+- Experience with Flask or Django
+- Familiarity with Machine Learning concepts (scikit-learn, NLP)
+- Experience with Git, Docker, and CI/CD
+- Bachelor's degree in Computer Science or related field
+- 3+ years of professional software development experience

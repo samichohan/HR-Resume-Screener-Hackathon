@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCREEN — AI Resume Screening Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="desk">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◈</span>
+      <span class="brand-name">SCREEN</span>
+      <span class="brand-tag">AI Resume Screening Desk</span>
+    </div>
+    <div class="model-badge" id="modelBadge">
+      <span class="dot"></span>
+      <span id="modelBadgeText">Loading model…</span>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <!-- INTAKE PANEL -->
+    <section class="panel intake" id="intakePanel">
+      <h1>New screening</h1>
+      <p class="panel-sub">Paste the role, drop the resumes, let the desk work.</p>
+
+      <form id="screenForm">
+        <label class="field-label" for="targetCategory">Target role</label>
+        <select id="targetCategory" name="target_category">
+          <option value="auto">Auto-detect from description</option>
+          <optgroup label="Common titles (mapped to closest trained category)">
+            {% for alias, mapped in role_aliases.items() %}
+            <option value="{{ alias }}">{{ alias }} → {{ mapped }}</option>
+            {% endfor %}
+          </optgroup>
+          <optgroup label="Trained categories (25, from the real dataset)">
+            {% for c in categories %}
+            <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+          </optgroup>
+        </select>
+
+        <label class="field-label" for="jobDescription">Job description</label>
+        <textarea id="jobDescription" name="job_description" rows="9"
+          placeholder="Paste the full job description here…"></textarea>
+        <button type="button" class="link-btn" id="loadSampleJD">Use sample job description</button>
+        <button type="button" class="link-btn" id="loadSampleJDAI">Use sample AI Engineer JD</button>
+
+        <label class="field-label">Resumes</label>
+        <div class="dropzone" id="dropzone">
+          <input type="file" id="resumeInput" name="resumes" multiple
+                 accept=".pdf,.docx,.txt" hidden>
+          <div class="dropzone-inner">
+            <span class="dropzone-icon">⤓</span>
+            <p><strong>Drop resumes here</strong> or click to browse</p>
+            <p class="dropzone-hint">PDF, DOCX, or TXT — multiple files supported</p>
+          </div>
+        </div>
+        <ul id="fileList" class="file-list"></ul>
+        <button type="button" class="link-btn" id="loadSampleResumes">Use 2 sample resumes</button>
+
+        <button type="submit" class="btn-primary" id="runBtn">
+          <span id="runBtnText">Run screening</span>
+        </button>
+      </form>
+
+      <div class="architecture-note">
+        <p><strong>How scoring works</strong></p>
+        <p>A neural network (ANN) trained on 962 real, labelled resumes
+        classifies each candidate's job family. That confidence is combined
+        with skill overlap, text similarity to the JD, experience, and
+        education into one disclosed, weighted match score — see the
+        breakdown on every candidate.</p>
+      </div>
+    </section>
+
+    <!-- CANDIDATE QUEUE -->
+    <section class="panel queue">
+      <div class="queue-header">
+        <div>
+          <h2 id="queueTitle">Candidate queue</h2>
+          <p class="panel-sub" id="queueSub">Run a screening to see candidates here.</p>
+        </div>
+        <button class="btn-secondary" id="downloadReportBtn" disabled>Download PDF report</button>
+      </div>
+
+      <div id="emptyState" class="empty-state">
+        <span class="empty-icon">🗂</span>
+        <p>No candidates yet. Start a screening on the left.</p>
+      </div>
+
+      <div id="candidateGrid" class="candidate-grid"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- DETAIL DRAWER -->
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<aside class="drawer" id="drawer">
+  <button class="drawer-close" id="drawerClose">✕</button>
+  <div id="drawerContent"></div>
+</aside>
+
+<div class="toast" id="toast"></div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
