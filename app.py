@@ -73,6 +73,12 @@ def model_info():
     return jsonify(matcher.metrics)
 
 
+@app.route("/api/scoring-weights")
+def scoring_weights():
+    from modules.model import WEIGHTS
+    return jsonify(WEIGHTS)
+
+
 SAMPLE_DIR = os.path.join(BASE_DIR, "sample_data")
 SAMPLE_FILES = {
     "job_description": "job_description.txt",
@@ -171,6 +177,26 @@ def get_candidates(session_id):
         "session": session,
         "candidates": database.get_candidates_by_session(session_id),
     })
+
+
+@app.route("/api/dashboard")
+def dashboard():
+    return jsonify(database.get_dashboard_stats())
+
+
+@app.route("/api/sessions")
+def sessions():
+    return jsonify(database.get_all_sessions())
+
+
+@app.route("/api/all-candidates")
+def all_candidates():
+    return jsonify(database.get_all_candidates(
+        search=request.args.get("search", ""),
+        status=request.args.get("status", ""),
+        category=request.args.get("category", ""),
+        session_id=request.args.get("session_id", ""),
+    ))
 
 
 @app.route("/api/hitl/<candidate_id>", methods=["POST"])

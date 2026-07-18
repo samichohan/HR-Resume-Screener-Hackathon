@@ -8,102 +8,270 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
 </head>
 <body>
 
-<div class="desk">
+<div class="shell">
 
-  <header class="topbar">
-    <div class="brand">
+  <!-- ============ SIDEBAR ============ -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
       <span class="brand-mark">◈</span>
       <span class="brand-name">SCREEN</span>
-      <span class="brand-tag">AI Resume Screening Desk</span>
     </div>
-    <div class="model-badge" id="modelBadge">
-      <span class="dot"></span>
-      <span id="modelBadgeText">Loading model…</span>
+
+    <div class="sidebar-section-label">Workspace</div>
+    <button class="nav-item active" data-view="dashboard">
+      <span class="nav-icon">▦</span> Dashboard
+    </button>
+    <button class="nav-item" data-view="screening">
+      <span class="nav-icon">＋</span> New Screening
+    </button>
+    <button class="nav-item" data-view="candidates">
+      <span class="nav-icon">🗂</span> Candidates
+      <span class="nav-badge" id="navCandidateCount">0</span>
+    </button>
+    <button class="nav-item" data-view="history">
+      <span class="nav-icon">◷</span> Session History
+    </button>
+    <button class="nav-item" data-view="compare">
+      <span class="nav-icon">⇄</span> Compare
+    </button>
+
+    <div class="sidebar-section-label">System</div>
+    <button class="nav-item" data-view="model">
+      <span class="nav-icon">◎</span> Model &amp; ANN Info
+    </button>
+
+    <div class="sidebar-footer">
+      <div class="model-badge" id="modelBadge">
+        <span class="dot"></span>
+        <span id="modelBadgeText">Loading model…</span>
+      </div>
     </div>
-  </header>
+  </nav>
 
-  <main class="layout">
+  <!-- ============ MAIN ============ -->
+  <main class="main">
 
-    <!-- INTAKE PANEL -->
-    <section class="panel intake" id="intakePanel">
-      <h1>New screening</h1>
-      <p class="panel-sub">Paste the role, drop the resumes, let the desk work.</p>
-
-      <form id="screenForm">
-        <label class="field-label" for="targetCategory">Target role</label>
-        <select id="targetCategory" name="target_category">
-          <option value="auto">Auto-detect from description</option>
-          <optgroup label="Common titles (mapped to closest trained category)">
-            {% for alias, mapped in role_aliases.items() %}
-            <option value="{{ alias }}">{{ alias }} → {{ mapped }}</option>
-            {% endfor %}
-          </optgroup>
-          <optgroup label="Trained categories (25, from the real dataset)">
-            {% for c in categories %}
-            <option value="{{ c }}">{{ c }}</option>
-            {% endfor %}
-          </optgroup>
-        </select>
-
-        <label class="field-label" for="jobDescription">Job description</label>
-        <textarea id="jobDescription" name="job_description" rows="9"
-          placeholder="Paste the full job description here…"></textarea>
-        <button type="button" class="link-btn" id="loadSampleJD">Use sample job description</button>
-        <button type="button" class="link-btn" id="loadSampleJDAI">Use sample AI Engineer JD</button>
-
-        <label class="field-label">Resumes</label>
-        <div class="dropzone" id="dropzone">
-          <input type="file" id="resumeInput" name="resumes" multiple
-                 accept=".pdf,.docx,.txt" hidden>
-          <div class="dropzone-inner">
-            <span class="dropzone-icon">⤓</span>
-            <p><strong>Drop resumes here</strong> or click to browse</p>
-            <p class="dropzone-hint">PDF, DOCX, or TXT — multiple files supported</p>
-          </div>
+    <!-- ---------- DASHBOARD VIEW ---------- -->
+    <section class="view" id="view-dashboard">
+      <header class="view-header">
+        <div>
+          <h1>Dashboard</h1>
+          <p class="view-sub">Live, all-time overview of every screening run on this desk.</p>
         </div>
-        <ul id="fileList" class="file-list"></ul>
-        <button type="button" class="link-btn" id="loadSampleResumes">Use 2 sample resumes</button>
+        <button class="btn-secondary" id="refreshDashboard">Refresh</button>
+      </header>
 
-        <button type="submit" class="btn-primary" id="runBtn">
-          <span id="runBtnText">Run screening</span>
-        </button>
-      </form>
+      <div class="stat-grid" id="statGrid">
+        <div class="stat-card"><p class="stat-label">Candidates screened</p><p class="stat-value" id="statTotalCandidates">—</p></div>
+        <div class="stat-card"><p class="stat-label">Screening sessions</p><p class="stat-value" id="statTotalSessions">—</p></div>
+        <div class="stat-card"><p class="stat-label">Average match score</p><p class="stat-value" id="statAvgScore">—</p></div>
+        <div class="stat-card"><p class="stat-label">Approval rate</p><p class="stat-value" id="statApprovalRate">—</p></div>
+      </div>
 
-      <div class="architecture-note">
-        <p><strong>How scoring works</strong></p>
-        <p>A neural network (ANN) trained on 962 real, labelled resumes
-        classifies each candidate's job family. That confidence is combined
-        with skill overlap, text similarity to the JD, experience, and
-        education into one disclosed, weighted match score — see the
-        breakdown on every candidate.</p>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <h3>Score distribution</h3>
+          <canvas id="chartScoreDist" height="180"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Human decisions</h3>
+          <canvas id="chartDecisions" height="180"></canvas>
+        </div>
+        <div class="chart-card chart-card-wide">
+          <h3>Candidates by job category</h3>
+          <canvas id="chartCategories" height="140"></canvas>
+        </div>
+      </div>
+
+      <div class="panel-block">
+        <h3>Recent activity</h3>
+        <div id="recentActivityList" class="activity-list"></div>
       </div>
     </section>
 
-    <!-- CANDIDATE QUEUE -->
-    <section class="panel queue">
-      <div class="queue-header">
+    <!-- ---------- NEW SCREENING VIEW ---------- -->
+    <section class="view hidden" id="view-screening">
+      <div class="screening-layout">
+        <section class="panel intake">
+          <h1>New screening</h1>
+          <p class="panel-sub">Paste the role, drop the resumes, let the desk work.</p>
+
+          <form id="screenForm">
+            <label class="field-label" for="targetCategory">Target role</label>
+            <select id="targetCategory" name="target_category">
+              <option value="auto">Auto-detect from description</option>
+              <optgroup label="Common titles (mapped to closest trained category)">
+                {% for alias, mapped in role_aliases.items() %}
+                <option value="{{ alias }}">{{ alias }} → {{ mapped }}</option>
+                {% endfor %}
+              </optgroup>
+              <optgroup label="Trained categories (25, from the real dataset)">
+                {% for c in categories %}
+                <option value="{{ c }}">{{ c }}</option>
+                {% endfor %}
+              </optgroup>
+            </select>
+
+            <label class="field-label" for="jobDescription">Job description</label>
+            <textarea id="jobDescription" name="job_description" rows="9"
+              placeholder="Paste the full job description here…"></textarea>
+            <button type="button" class="link-btn" id="loadSampleJD">Use sample job description</button>
+            <button type="button" class="link-btn" id="loadSampleJDAI">Use sample AI Engineer JD</button>
+
+            <label class="field-label">Resumes</label>
+            <div class="dropzone" id="dropzone">
+              <input type="file" id="resumeInput" name="resumes" multiple
+                     accept=".pdf,.docx,.txt" hidden>
+              <div class="dropzone-inner">
+                <span class="dropzone-icon">⤓</span>
+                <p><strong>Drop resumes here</strong> or click to browse</p>
+                <p class="dropzone-hint">PDF, DOCX, or TXT — multiple files supported</p>
+              </div>
+            </div>
+            <ul id="fileList" class="file-list"></ul>
+            <button type="button" class="link-btn" id="loadSampleResumes">Use 2 sample resumes</button>
+
+            <button type="submit" class="btn-primary" id="runBtn">
+              <span id="runBtnText">Run screening</span>
+            </button>
+          </form>
+
+          <div class="architecture-note">
+            <p><strong>How scoring works</strong></p>
+            <p>A neural network (ANN) trained on 962 real, labelled resumes
+            classifies each candidate's job family. That confidence is combined
+            with skill overlap, text similarity to the JD, experience, and
+            education into one disclosed, weighted match score.</p>
+          </div>
+        </section>
+
+        <section class="panel queue">
+          <div class="queue-header">
+            <div>
+              <h2 id="queueTitle">Candidate queue</h2>
+              <p class="panel-sub" id="queueSub">Run a screening to see candidates here.</p>
+            </div>
+            <button class="btn-secondary" id="downloadReportBtn" disabled>Download PDF report</button>
+          </div>
+
+          <div id="emptyState" class="empty-state">
+            <span class="empty-icon">🗂</span>
+            <p>No candidates yet. Start a screening on the left.</p>
+          </div>
+
+          <div id="candidateGrid" class="candidate-grid"></div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ---------- CANDIDATES (ALL, SEARCH & FILTER) VIEW ---------- -->
+    <section class="view hidden" id="view-candidates">
+      <header class="view-header">
         <div>
-          <h2 id="queueTitle">Candidate queue</h2>
-          <p class="panel-sub" id="queueSub">Run a screening to see candidates here.</p>
+          <h1>All candidates</h1>
+          <p class="view-sub">Every resume ever screened on this desk, across every session.</p>
         </div>
-        <button class="btn-secondary" id="downloadReportBtn" disabled>Download PDF report</button>
+      </header>
+
+      <div class="filter-bar">
+        <input type="text" id="candSearch" placeholder="Search by name or filename…">
+        <select id="candStatusFilter">
+          <option value="">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="edited">Edited</option>
+        </select>
+        <select id="candCategoryFilter">
+          <option value="">All categories</option>
+          {% for c in categories %}
+          <option value="{{ c }}">{{ c }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn-secondary" id="compareSelectedBtn" disabled>Compare selected (<span id="compareCount">0</span>)</button>
       </div>
 
-      <div id="emptyState" class="empty-state">
-        <span class="empty-icon">🗂</span>
-        <p>No candidates yet. Start a screening on the left.</p>
+      <div class="table-wrap">
+        <table class="data-table" id="candidatesTable">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Candidate</th>
+              <th>Target role</th>
+              <th>Score</th>
+              <th>Status</th>
+              <th>Screened</th>
+            </tr>
+          </thead>
+          <tbody id="candidatesTableBody"></tbody>
+        </table>
+        <p class="empty-state" id="candidatesEmptyState" style="display:none;">No candidates match these filters yet.</p>
+      </div>
+    </section>
+
+    <!-- ---------- SESSION HISTORY VIEW ---------- -->
+    <section class="view hidden" id="view-history">
+      <header class="view-header">
+        <div>
+          <h1>Session history</h1>
+          <p class="view-sub">Every screening run — click one to reopen its candidate queue.</p>
+        </div>
+      </header>
+      <div class="session-list" id="sessionList"></div>
+    </section>
+
+    <!-- ---------- COMPARE VIEW ---------- -->
+    <section class="view hidden" id="view-compare">
+      <header class="view-header">
+        <div>
+          <h1>Compare candidates</h1>
+          <p class="view-sub">Pick candidates from the Candidates tab (checkboxes), then compare here.</p>
+        </div>
+      </header>
+      <div id="compareEmpty" class="empty-state">
+        <span class="empty-icon">⇄</span>
+        <p>No candidates selected yet. Go to the Candidates tab and check a few to compare.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table compare-table" id="compareTable" style="display:none;"></table>
+      </div>
+    </section>
+
+    <!-- ---------- MODEL INFO VIEW ---------- -->
+    <section class="view hidden" id="view-model">
+      <header class="view-header">
+        <div>
+          <h1>Model &amp; ANN info</h1>
+          <p class="view-sub">What's actually running under the hood — no black box.</p>
+        </div>
+      </header>
+
+      <div class="stat-grid">
+        <div class="stat-card"><p class="stat-label">Test accuracy</p><p class="stat-value" id="modelAccuracy">—</p></div>
+        <div class="stat-card"><p class="stat-label">Training samples</p><p class="stat-value" id="modelSamples">—</p></div>
+        <div class="stat-card"><p class="stat-label">Job categories</p><p class="stat-value" id="modelCategories">—</p></div>
       </div>
 
-      <div id="candidateGrid" class="candidate-grid"></div>
+      <div class="panel-block">
+        <h3>Architecture</h3>
+        <p class="mono-line" id="modelArchitecture">—</p>
+        <h3 style="margin-top:18px;">Dataset</h3>
+        <p class="mono-line" id="modelDataset">—</p>
+        <h3 style="margin-top:18px;">Scoring weights (disclosed)</h3>
+        <div id="modelWeights" class="weights-list"></div>
+        <h3 style="margin-top:18px;">Trained categories</h3>
+        <div class="dossier-skills" id="modelCategoryChips"></div>
+      </div>
     </section>
 
   </main>
 </div>
 
-<!-- DETAIL DRAWER -->
+<!-- DETAIL DRAWER (shared across views) -->
 <div class="drawer-backdrop" id="drawerBackdrop"></div>
 <aside class="drawer" id="drawer">
   <button class="drawer-close" id="drawerClose">✕</button>

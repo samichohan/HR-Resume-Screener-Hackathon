@@ -147,3 +147,106 @@ def update_hitl_decision(candidate_id: str, decision: str, note: str = "") -> bo
             (decision, note, candidate_id),
         )
     return cursor.rowcount > 0
+
+
+# ---------------------------------------------------------------------------
+# READ-ONLY helpers for the dashboard / history / search / compare UI.
+# None of these can write to hitl_status — they only ever SELECT.
+# ---------------------------------------------------------------------------
+
+def get_all_sessions() -> list:
+    """Every past screening session, newest first, with a candidate count."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT s.id, s.job_description, s.target_category, s.created_at,
+                      COUNT(c.id) AS candidate_count,
+                      AVG(c.match_probability) AS avg_score
+               FROM sessions s
+               LEFT JOIN candidates c ON c.session_id = s.id
+               GROUP BY s.id
+               ORDER BY s.created_at DESC"""
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_all_candidates(search: str = "", status: str = "", category: str = "",
+                        session_id: str = "") -> list:
+    """Every candidate ever screened, across all sessions, with optional
+    filters — used by Candidate History, Search & Filter, and Compare."""
+    query = """SELECT c.*, s.job_description AS session_job_description
+               FROM candidates c
+               JOIN sessions s ON s.id = c.session_id
+               WHERE 1=1"""
+    params = []
+    if search:
+        query += " AND (c.candidate_name LIKE ? OR c.filename LIKE ?)"
+        params.extend([f"%{search}%", f"%{search}%"])
+    if status:
+        query += " AND c.hitl_status = ?"
+        params.append(status)
+    if category:
+        query += " AND c.target_category = ?"
+        params.append(category)
+    if session_id:
+        query += " AND c.session_id = ?"
+        params.append(session_id)
+    query += " ORDER BY c.created_at DESC"
+
+    with get_conn() as conn:
+        rows = conn.execute(query, params).fetchall()
+    return [_row_to_dict(r) for r in rows]
+
+
+def get_dashboard_stats() -> dict:
+    """All-time aggregate stats for the live dashboard."""
+    with get_conn() as conn:
+        totals = conn.execute(
+            """SELECT COUNT(*) AS total_candidates,
+                      AVG(match_probability) AS avg_score,
+                      SUM(CASE WHEN hitl_status='approved' THEN 1 ELSE 0 END) AS approved,
+                      SUM(CASE WHEN hitl_status='rejected' THEN 1 ELSE 0 END) AS rejected,
+                      SUM(CASE WHEN hitl_status='edited' THEN 1 ELSE 0 END) AS edited,
+                      SUM(CASE WHEN hitl_status='pending' THEN 1 ELSE 0 END) AS pending
+               FROM candidates"""
+        ).fetchone()
+
+        total_sessions = conn.execute("SELECT COUNT(*) AS n FROM sessions").fetchone()["n"]
+
+        by_category = conn.execute(
+            """SELECT target_category, COUNT(*) AS n, AVG(match_probability) AS avg_score
+               FROM candidates GROUP BY target_category ORDER BY n DESC"""
+        ).fetchall()
+
+        # score distribution buckets for a histogram
+        buckets = conn.execute(
+            """SELECT
+                 SUM(CASE WHEN match_probability < 0.2 THEN 1 ELSE 0 END) AS b0,
+                 SUM(CASE WHEN match_probability >= 0.2 AND match_probability < 0.4 THEN 1 ELSE 0 END) AS b1,
+                 SUM(CASE WHEN match_probability >= 0.4 AND match_probability < 0.6 THEN 1 ELSE 0 END) AS b2,
+                 SUM(CASE WHEN match_probability >= 0.6 AND match_probability < 0.8 THEN 1 ELSE 0 END) AS b3,
+                 SUM(CASE WHEN match_probability >= 0.8 THEN 1 ELSE 0 END) AS b4
+               FROM candidates"""
+        ).fetchone()
+
+        recent = conn.execute(
+            """SELECT c.id, c.candidate_name, c.target_category, c.match_probability,
+                      c.hitl_status, c.created_at, c.session_id
+               FROM candidates c ORDER BY c.created_at DESC LIMIT 8"""
+        ).fetchall()
+
+    return {
+        "total_candidates": totals["total_candidates"] or 0,
+        "total_sessions": total_sessions or 0,
+        "avg_score": round(totals["avg_score"], 4) if totals["avg_score"] else 0,
+        "approved": totals["approved"] or 0,
+        "rejected": totals["rejected"] or 0,
+        "edited": totals["edited"] or 0,
+        "pending": totals["pending"] or 0,
+        "by_category": [dict(r) for r in by_category],
+        "score_distribution": {
+            "0-20%": buckets["b0"] or 0, "20-40%": buckets["b1"] or 0,
+            "40-60%": buckets["b2"] or 0, "60-80%": buckets["b3"] or 0,
+            "80-100%": buckets["b4"] or 0,
+        },
+        "recent_activity": [dict(r) for r in recent],
+    }
