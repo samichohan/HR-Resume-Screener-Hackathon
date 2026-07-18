@@ -218,6 +218,8 @@ body {
   font-weight: 600;
 }
 .chart-card-wide { grid-column: 1 / -1; }
+.chart-container { position: relative; height: 230px; width: 100%; }
+.chart-card-wide .chart-container { height: 260px; }
 @media (max-width: 780px) { .chart-grid { grid-template-columns: 1fr; } }
 
 .panel-block {
